@@ -1,0 +1,13 @@
+{
+    "name": "Curs valutar BNR",
+    "country": ["ro"],
+    "domain": "cursbnr",
+    "codeowners": ["@cnecrea"],
+    "requirements": [],
+    "iot_class": "cloud_polling",
+    "config_flow": true,
+    "documentation": "https://github.com/cnecrea/cursbnr",
+    "issue_tracker": "https://github.com/cnecrea/cursbnr/issues",
+    "render_readme": true,
+    "version": "1.0.0"
+}

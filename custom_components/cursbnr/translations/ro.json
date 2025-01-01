@@ -1,0 +1,42 @@
+{
+    "title": "Curs valutar BNR",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configurare inițială",
+                "description": "Configurează integrarea pentru a afișa cursurile valutare actualizate.",
+                "data": {
+                    "update_interval": "Interval de actualizare (în secunde)"
+                }
+            }
+        },
+        "error": {
+            "invalid_update_interval": "Intervalul de actualizare trebuie să fie între 60 și 3600 secunde."
+        },
+        "abort": {
+            "already_configured": "Această integrare este deja configurată."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Setări suplimentare",
+                "description": "Actualizează opțiunile pentru integrare.",
+                "data": {
+                    "update_interval": "Interval de actualizare (în secunde)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cursbnr": {
+                "name": "Curs Valutar BNR",
+                "state": {
+                    "updating": "Actualizare în curs",
+                    "error": "Eroare la actualizare"
+                }
+            }
+        }
+    }
+}
