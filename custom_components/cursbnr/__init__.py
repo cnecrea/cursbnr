@@ -1,7 +1,7 @@
 """Inițializarea integrării Curs valutar BNR."""
 import logging
 import aiohttp
-from datetime import timedelta
+from datetime import timedelta, datetime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -30,7 +30,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass,
         _LOGGER,
         name=f"{DOMAIN}_coordinator",
-        update_method=_async_update_data,
+        update_method=lambda: _async_update_data(hass),
         update_interval=timedelta(seconds=update_interval),
     )
 
@@ -64,19 +64,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return unloaded
 
-async def _async_update_data():
+async def _async_update_data(hass: HomeAssistant):
     """Metodă de actualizare a datelor."""
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(URL) as response:
-                if response.status != 200:
-                    _LOGGER.error("Eroare la preluarea datelor de la API-ul BNR: %s", response.status)
-                    return {}
-                json_data = await response.json()
-                #_LOGGER.debug("JSON preluat de la API-ul BNR: %s", json_data)
-                return json_data
-        except aiohttp.ClientError as client_error:
-            _LOGGER.error("Eroare la conexiunea cu API-ul BNR: %s", client_error)
-        except Exception as e:
-            _LOGGER.error("Eroare neașteptată la procesarea JSON-ului de la API-ul BNR: %s", e)
-        return {}
+    current_time = datetime.now()
+    if not hass.data[DOMAIN].get("initial_fetch_done", False) or current_time.hour == 13:
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(URL) as response:
+                    if response.status != 200:
+                        _LOGGER.error("Eroare la preluarea datelor de la API-ul BNR: %s", response.status)
+                        return {}
+                    json_data = await response.json()
+                    _LOGGER.debug("JSON preluat de la API-ul BNR: %s", json_data)
+                    hass.data[DOMAIN]["last_valid_data"] = json_data  # Stochează datele valide
+                    hass.data[DOMAIN]["initial_fetch_done"] = True
+                    return json_data
+            except aiohttp.ClientError as client_error:
+                _LOGGER.error("Eroare la conexiunea cu API-ul BNR: %s", client_error)
+            except Exception as e:
+                _LOGGER.error("Eroare neașteptată la procesarea JSON-ului de la API-ul BNR: %s", e)
+            return {}
+    else:
+        _LOGGER.debug("Actualizările sunt permise doar între 13:00 și 14:00. Ora curentă: %s", current_time)
+        return hass.data[DOMAIN].get("last_valid_data", {})
