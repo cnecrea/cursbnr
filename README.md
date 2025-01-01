@@ -1,3 +1,5 @@
+![BNR](https://github.com/user-attachments/assets/a2f7ae7c-6ca0-4c8d-b5f0-3c0f6517fefc)
+
 # Curs valutar BNR - Integrare pentru Home Assistant 🏦🇷🇴
 
 Această integrare pentru Home Assistant oferă monitorizare completă a cursurilor valutare și a dobânzilor oficiale furnizate de **BNR**. Integrarea afișează informații despre cursuri valutare oficiale, schimb valutar și dobânzi ROBOR/EURIBOR/IRCC. 🚀
