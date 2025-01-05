@@ -9,7 +9,7 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-ATTRIBUTION = "Date furnizate de BNR prin www.finradar.ro"
+ATTRIBUTION = "Date furnizate de BNR prin www.syspro.ro"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -31,7 +31,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
         DobandaEuribor(coordinator),
         IRCCzilnic(coordinator),
         IRCCTrimestrial(coordinator),
-
     ]
 
     # Adaugă toți senzorii din listă
@@ -41,886 +40,634 @@ async def async_setup_entry(hass, entry, async_add_entities):
     sensor_names = [sensor.name for sensor in sensors]
     _LOGGER.debug("Senzorii adăugați pentru integrarea Curs valutar BNR: %s", sensor_names)
 
-class BnrRatesEur(CoordinatorEntity, SensorEntity):
+
+class BaseBnrSensor(CoordinatorEntity, SensorEntity):
+    """Clasa de bază pentru senzorii cursului valutar BNR."""
+
+    def __init__(self, coordinator, name, unique_id, entity_id, icon):
+        """Inițializează senzorul."""
+        super().__init__(coordinator)
+        self._attr_name = name
+        self._attr_unique_id = unique_id
+        self._attr_entity_id = entity_id
+        self._attr_icon = icon
+        _LOGGER.debug("Senzorul %s a fost inițializat.", self._attr_name)
+
+    @property
+    def native_value(self):
+        """Returnează valoarea principală a senzorului."""
+        raise NotImplementedError
+
+    @property
+    def extra_state_attributes(self):
+        """Returnează atributele suplimentare."""
+        raise NotImplementedError
+
+    @property
+    def icon(self):
+        """Returnează pictograma senzorului."""
+        return self._attr_icon
+
+    @property
+    def device_info(self):
+        """Informații despre dispozitiv pentru integrare."""
+        return {
+            "identifiers": {(DOMAIN, "cursbnr")},
+            "name": "Curs valutar BNR",
+            "manufacturer": "Ciprian Nicolae (cnecrea)",
+            "model": "Curs valutar BNR",
+            "entry_type": DeviceEntryType.SERVICE,
+        }
+
+
+class BnrRatesEur(BaseBnrSensor):
     """Clasa senzorului pentru rata EUR oferită de BNR."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Curs valutar RON / EUR"
-        self._attr_unique_id = f"{DOMAIN}_bnr_rates_ron_eur"
-        self._attr_entity_id = "sensor.bnr_rates_ron_eur"
-
-        _LOGGER.debug("Senzorul BnrRatesEur a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Curs valutar RON → EUR",
+            unique_id=f"{DOMAIN}_bnr_rates_ron_eur",
+            entity_id="sensor.bnr_rates_ron_eur",
+            icon="mdi:currency-eur",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (currentValue)."""
+        """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        #_LOGGER.debug("JSON complet utilizat de BnrRatesEur: %s", json_data)
-
-        valoare = float(json_data.get("pageProps", {}).get("bnrRates", {}).get("eur", {}).get("currentValue", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrRatesEur este: %.4f", valoare)
-        return valoare
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        valoare_eur = next((item["rate"] for item in curs_actual if item["currency"] == "EUR"), None)
+        if valoare_eur is not None:
+            valoare = float(valoare_eur)
+            _LOGGER.debug("Valoarea principală a senzorului %s este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata EUR în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("bnrRates", {}).get("eur", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrRatesEur.")
-            return {}
+        json_data = self.coordinator.data
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        curs_anterior = json_data.get("curs_valutar", {}).get("anterior", [])
+        eur_actual = next((item for item in curs_actual if item["currency"] == "EUR"), {})
+        eur_anterior = next((item for item in curs_anterior if item["currency"] == "EUR"), {})
+
+        valoare_curenta = float(eur_actual.get("rate", 0))
+        valoare_anterioara = float(eur_anterior.get("rate", 0))
+        schimbare = valoare_curenta - valoare_anterioara
+        schimbare_procentuală = (schimbare / valoare_anterioara * 100) if valoare_anterioara else 0
 
         attributes = {
-            "Valoare curentă": "%.4f" % float(data.get("currentValue", 0)),
-            "Valoare anterioară": "%.4f" % float(data.get("previousValue", 0)),
-            "Schimbare": "%.4f" % float(data.get("change", 0)),
-            "Schimbare procentuală": float(data.get("percentChange", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Valoare curentă": "%.4f" % valoare_curenta,
+            "Valoare anterioară": "%.4f" % valoare_anterioara,
+            "Schimbare": "%.4f" % schimbare,
+            "Schimbare procentuală": "%.2f" % schimbare_procentuală,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atribute brute (formatate cu 4 zecimale) înainte de returnare: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
 
-        # Elimină câmpurile "lastArticles" și "lastPromos"
-        data = {key: value for key, value in self.coordinator.data.items()
-                if key not in ["lastArticles", "lastPromos"]}
-
-        # Adaugă atributul "attribution"
-        data[ATTR_ATTRIBUTION] = ATTRIBUTION
-
-        _LOGGER.debug("Atributele senzorului BnrRatesEur au fost actualizate: %s", data)
-        return data
-
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
-
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrRatesEur a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:currency-eur"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrare."""
-        device_info = {
-            "identifiers": {(DOMAIN, "cursbnr")},
-            "name": "Curs valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Curs valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrRatesEur: %s", device_info)
-        return device_info
-
-
-
-class BnrRatesUsd(CoordinatorEntity, SensorEntity):
+class BnrRatesUsd(BaseBnrSensor):
     """Clasa senzorului pentru rata USD oferită de BNR."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Curs valutar RON / USD"
-        self._attr_unique_id = f"{DOMAIN}_bnr_rates_ron_usd"
-        self._attr_entity_id = "sensor.bnr_rates_ron_usd"
-
-        _LOGGER.debug("Senzorul BnrRatesUsd a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Curs valutar RON → USD",
+            unique_id=f"{DOMAIN}_bnr_rates_ron_usd",
+            entity_id="sensor.bnr_rates_ron_usd",
+            icon="mdi:currency-usd",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (currentValue)."""
+        """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("bnrRates", {}).get("usd", {}).get("currentValue", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrRatesUsd este: %.4f", valoare)
-        return valoare
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        valoare_usd = next((item["rate"] for item in curs_actual if item["currency"] == "USD"), None)
+        if valoare_usd is not None:
+            valoare = float(valoare_usd)
+            _LOGGER.debug("Valoarea principală a senzorului %s este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata USD în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("bnrRates", {}).get("usd", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrRatesUsd.")
-            return {}
+        json_data = self.coordinator.data
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        curs_anterior = json_data.get("curs_valutar", {}).get("anterior", [])
+        usd_actual = next((item for item in curs_actual if item["currency"] == "USD"), {})
+        usd_anterior = next((item for item in curs_anterior if item["currency"] == "USD"), {})
+
+        valoare_curenta = float(usd_actual.get("rate", 0))
+        valoare_anterioara = float(usd_anterior.get("rate", 0))
+        schimbare = valoare_curenta - valoare_anterioara
+        schimbare_procentuală = (schimbare / valoare_anterioara * 100) if valoare_anterioara else 0
 
         attributes = {
-            "Valoare curentă": "%.4f" % float(data.get("currentValue", 0)),
-            "Valoare anterioară": "%.4f" % float(data.get("previousValue", 0)),
-            "Schimbare": "%.4f" % float(data.get("change", 0)),
-            "Schimbare procentuală": float(data.get("percentChange", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Valoare curentă": "%.4f" % valoare_curenta,
+            "Valoare anterioară": "%.4f" % valoare_anterioara,
+            "Schimbare": "%.4f" % schimbare,
+            "Schimbare procentuală": "%.2f" % schimbare_procentuală,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului BnrRatesUsd: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrRatesUsd a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:currency-usd"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrare."""
-        device_info = {
-            "identifiers": {(DOMAIN, "cursbnr")},
-            "name": "Curs valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Curs valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrRatesUsd: %s", device_info)
-        return device_info
-
-
-class BnrRatesChf(CoordinatorEntity, SensorEntity):
+class BnrRatesChf(BaseBnrSensor):
     """Clasa senzorului pentru rata CHF oferită de BNR."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Curs valutar RON / CHF"
-        self._attr_unique_id = f"{DOMAIN}_bnr_rates_ron_chf"
-        self._attr_entity_id = "sensor.bnr_rates_ron_chf"
-
-        _LOGGER.debug("Senzorul BnrRatesChf a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Curs valutar RON → CHF",
+            unique_id=f"{DOMAIN}_bnr_rates_ron_chf",
+            entity_id="sensor.bnr_rates_ron_chf",
+            icon="mdi:cash",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (currentValue)."""
+        """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("bnrRates", {}).get("chf", {}).get("currentValue", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrRatesChf este: %.4f", valoare)
-        return valoare
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        valoare_chf = next((item["rate"] for item in curs_actual if item["currency"] == "CHF"), None)
+        if valoare_chf is not None:
+            valoare = float(valoare_chf)
+            _LOGGER.debug("Valoarea principală a senzorului %s este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata CHF în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("bnrRates", {}).get("chf", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrRatesChf.")
-            return {}
+        json_data = self.coordinator.data
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        curs_anterior = json_data.get("curs_valutar", {}).get("anterior", [])
+        chf_actual = next((item for item in curs_actual if item["currency"] == "CHF"), {})
+        chf_anterior = next((item for item in curs_anterior if item["currency"] == "CHF"), {})
+
+        valoare_curenta = float(chf_actual.get("rate", 0))
+        valoare_anterioara = float(chf_anterior.get("rate", 0))
+        schimbare = valoare_curenta - valoare_anterioara
+        schimbare_procentuală = (schimbare / valoare_anterioara * 100) if valoare_anterioara else 0
 
         attributes = {
-            "Valoare curentă": "%.4f" % float(data.get("currentValue", 0)),
-            "Valoare anterioară": "%.4f" % float(data.get("previousValue", 0)),
-            "Schimbare": "%.4f" % float(data.get("change", 0)),
-            "Schimbare procentuală": float(data.get("percentChange", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Valoare curentă": "%.4f" % valoare_curenta,
+            "Valoare anterioară": "%.4f" % valoare_anterioara,
+            "Schimbare": "%.4f" % schimbare,
+            "Schimbare procentuală": "%.2f" % schimbare_procentuală,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului BnrRatesChf: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrRatesChf a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:cash"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrare."""
-        device_info = {
-            "identifiers": {(DOMAIN, "cursbnr")},
-            "name": "Curs valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Curs valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrRatesChf: %s", device_info)
-        return device_info
-
-
-class BnrRatesGbp(CoordinatorEntity, SensorEntity):
+class BnrRatesGbp(BaseBnrSensor):
     """Clasa senzorului pentru rata GBP oferită de BNR."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Curs valutar RON / GBP"
-        self._attr_unique_id = f"{DOMAIN}_bnr_rates_ron_gbp"
-        self._attr_entity_id = "sensor.bnr_rates_ron_gbp"
-
-        _LOGGER.debug("Senzorul BnrRatesGbp a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Curs valutar RON → GBP",
+            unique_id=f"{DOMAIN}_bnr_rates_ron_gbp",
+            entity_id="sensor.bnr_rates_ron_gbp",
+            icon="mdi:currency-gbp",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (currentValue)."""
+        """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("bnrRates", {}).get("gbp", {}).get("currentValue", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrRatesGbp este: %.4f", valoare)
-        return valoare
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        valoare_gbp = next((item["rate"] for item in curs_actual if item["currency"] == "GBP"), None)
+        if valoare_gbp is not None:
+            valoare = float(valoare_gbp)
+            _LOGGER.debug("Valoarea principală a senzorului %s este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata GBP în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("bnrRates", {}).get("gbp", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrRatesGbp.")
-            return {}
+        json_data = self.coordinator.data
+        curs_actual = json_data.get("curs_valutar", {}).get("actual", [])
+        curs_anterior = json_data.get("curs_valutar", {}).get("anterior", [])
+        gbp_actual = next((item for item in curs_actual if item["currency"] == "GBP"), {})
+        gbp_anterior = next((item for item in curs_anterior if item["currency"] == "GBP"), {})
+
+        valoare_curenta = float(gbp_actual.get("rate", 0))
+        valoare_anterioara = float(gbp_anterior.get("rate", 0))
+        schimbare = valoare_curenta - valoare_anterioara
+        schimbare_procentuală = (schimbare / valoare_anterioara * 100) if valoare_anterioara else 0
 
         attributes = {
-            "Valoare curentă": "%.4f" % float(data.get("currentValue", 0)),
-            "Valoare anterioară": "%.4f" % float(data.get("previousValue", 0)),
-            "Schimbare": "%.4f" % float(data.get("change", 0)),
-            "Schimbare procentuală": float(data.get("percentChange", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Valoare curentă": "%.4f" % valoare_curenta,
+            "Valoare anterioară": "%.4f" % valoare_anterioara,
+            "Schimbare": "%.4f" % schimbare,
+            "Schimbare procentuală": "%.2f" % schimbare_procentuală,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului BnrRatesGbp: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrRatesGbp a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:currency-gbp"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrare."""
-        device_info = {
-            "identifiers": {(DOMAIN, "cursbnr")},
-            "name": "Curs valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Curs valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrRatesGbp: %s", device_info)
-        return device_info
-
-
-class BnrFxRatesEur(CoordinatorEntity, SensorEntity):
+class BnrFxRatesEur(BaseBnrSensor):
     """Clasa senzorului pentru rata EUR (FX Rates - Cash)."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Schimb valutar RON / EUR"
-        self._attr_unique_id = f"{DOMAIN}_fx_rates_cash_eur"
-        self._attr_entity_id = "sensor.fx_rates_cash_eur"
-
-        _LOGGER.debug("Senzorul BnrFxRatesEur a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Schimb valutar RON → EUR",
+            unique_id=f"{DOMAIN}_fx_rates_cash_eur",
+            entity_id="sensor.fx_rates_cash_eur",
+            icon="mdi:currency-eur",
+        )
 
     @property
     def native_value(self):
         """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("eur", {}).get("sell", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrFxRatesEur este: %.4f", valoare)
-        return valoare
+        cec_data = json_data.get("cec", [])
+        eur_data = next((item for item in cec_data if item["currency"] == "EUR"), {})
+
+        sell_rate = eur_data.get("sell_rate", 0)
+        if sell_rate:
+            valoare = float(sell_rate)
+            _LOGGER.debug("Valoarea principală a senzorului %s (Sell Rate) este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata de vânzare pentru EUR în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("eur", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrFxRatesEur.")
+        json_data = self.coordinator.data
+        cec_data = json_data.get("cec", [])
+        eur_data = next((item for item in cec_data if item["currency"] == "EUR"), {})
+
+        if not eur_data:
+            _LOGGER.debug("Nu există date pentru atributele senzorului %s.", self._attr_name)
             return {}
 
         attributes = {
-            "Vânzare": "%.4f" % float(data.get("sell", 0)),
-            "Cumpărare": "%.4f" % float(data.get("buy", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Vânzare": "%.4f" % float(eur_data.get("sell_rate", 0)),
+            "Cumpărare": "%.4f" % float(eur_data.get("buy_rate", 0)),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului BnrFxRatesEur: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrFxRatesEur a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:currency-eur"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea Schimb Valutar."""
-        device_info = {
-            "identifiers": {(DOMAIN, "schimbbnr")},
-            "name": "Schimb valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Schimb valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrFxRatesEur: %s", device_info)
-        return device_info
-
-
-class BnrFxRatesUsd(CoordinatorEntity, SensorEntity):
+class BnrFxRatesUsd(BaseBnrSensor):
     """Clasa senzorului pentru rata USD (FX Rates - Cash)."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Schimb valutar RON / USD"
-        self._attr_unique_id = f"{DOMAIN}_fx_rates_cash_usd"
-        self._attr_entity_id = "sensor.fx_rates_cash_usd"
-
-        _LOGGER.debug("Senzorul BnrFxRatesUsd a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Schimb valutar RON → USD",
+            unique_id=f"{DOMAIN}_fx_rates_cash_usd",
+            entity_id="sensor.fx_rates_cash_usd",
+            icon="mdi:currency-usd",
+        )
 
     @property
     def native_value(self):
         """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("usd", {}).get("sell", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrFxRatesUsd este: %.4f", valoare)
-        return valoare
+        cec_data = json_data.get("cec", [])
+        usd_data = next((item for item in cec_data if item["currency"] == "USD"), {})
+
+        sell_rate = usd_data.get("sell_rate", 0)
+        if sell_rate:
+            valoare = float(sell_rate)
+            _LOGGER.debug("Valoarea principală a senzorului %s (Sell Rate) este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata de vânzare pentru USD în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("usd", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrFxRatesUsd.")
+        json_data = self.coordinator.data
+        cec_data = json_data.get("cec", [])
+        usd_data = next((item for item in cec_data if item["currency"] == "USD"), {})
+
+        if not usd_data:
+            _LOGGER.debug("Nu există date pentru atributele senzorului %s.", self._attr_name)
             return {}
 
         attributes = {
-            "Vânzare": "%.4f" % float(data.get("sell", 0)),
-            "Cumpărare": "%.4f" % float(data.get("buy", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Vânzare": "%.4f" % float(usd_data.get("sell_rate", 0)),
+            "Cumpărare": "%.4f" % float(usd_data.get("buy_rate", 0)),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului BnrFxRatesUsd: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrFxRatesUsd a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:currency-usd"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea Schimb Valutar."""
-        device_info = {
-            "identifiers": {(DOMAIN, "schimbbnr")},
-            "name": "Schimb valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Schimb valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrFxRatesUsd: %s", device_info)
-        return device_info
-
-
-class BnrFxRatesChf(CoordinatorEntity, SensorEntity):
+class BnrFxRatesChf(BaseBnrSensor):
     """Clasa senzorului pentru rata CHF (FX Rates - Cash)."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Schimb valutar RON / CHF"
-        self._attr_unique_id = f"{DOMAIN}_fx_rates_cash_chf"
-        self._attr_entity_id = "sensor.fx_rates_cash_chf"
-
-        _LOGGER.debug("Senzorul BnrFxRatesChf a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Schimb valutar RON → CHF",
+            unique_id=f"{DOMAIN}_fx_rates_cash_chf",
+            entity_id="sensor.fx_rates_cash_chf",
+            icon="mdi:cash",
+        )
 
     @property
     def native_value(self):
         """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("chf", {}).get("sell", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrFxRatesChf este: %.4f", valoare)
-        return valoare
+        cec_data = json_data.get("cec", [])
+        chf_data = next((item for item in cec_data if item["currency"] == "CHF"), {})
+
+        sell_rate = chf_data.get("sell_rate", 0)
+        if sell_rate:
+            valoare = float(sell_rate)
+            _LOGGER.debug("Valoarea principală a senzorului %s (Sell Rate) este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata de vânzare pentru CHF în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("chf", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrFxRatesChf.")
+        json_data = self.coordinator.data
+        cec_data = json_data.get("cec", [])
+        chf_data = next((item for item in cec_data if item["currency"] == "CHF"), {})
+
+        if not chf_data:
+            _LOGGER.debug("Nu există date pentru atributele senzorului %s.", self._attr_name)
             return {}
 
         attributes = {
-            "Vânzare": "%.4f" % float(data.get("sell", 0)),
-            "Cumpărare": "%.4f" % float(data.get("buy", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Vânzare": "%.4f" % float(chf_data.get("sell_rate", 0)),
+            "Cumpărare": "%.4f" % float(chf_data.get("buy_rate", 0)),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului BnrFxRatesChf: %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrFxRatesChf a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:cash"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea Schimb Valutar."""
-        device_info = {
-            "identifiers": {(DOMAIN, "schimbbnr")},
-            "name": "Schimb valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Schimb valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrFxRatesChf: %s", device_info)
-        return device_info
-
-
-class BnrFxRatesGbp(CoordinatorEntity, SensorEntity):
+class BnrFxRatesGbp(BaseBnrSensor):
     """Clasa senzorului pentru rata GBP (FX Rates - Cash)."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Schimb valutar RON / GBP"
-        self._attr_unique_id = f"{DOMAIN}_fx_rates_cash_gbp"
-        self._attr_entity_id = "sensor.fx_rates_cash_gbp"
-
-        _LOGGER.debug("Senzorul BnrFxRatesGbp a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Schimb valutar RON → GBP",
+            unique_id=f"{DOMAIN}_fx_rates_cash_gbp",
+            entity_id="sensor.fx_rates_cash_gbp",
+            icon="mdi:currency-gbp",
+        )
 
     @property
     def native_value(self):
         """Returnează valoarea principală a senzorului."""
         json_data = self.coordinator.data
-        valoare = float(json_data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("gbp", {}).get("sell", 0))
-        _LOGGER.debug("Valoarea principală a senzorului BnrFxRatesGbp este: %.4f", valoare)
-        return valoare
+        cec_data = json_data.get("cec", [])
+        gbp_data = next((item for item in cec_data if item["currency"] == "GBP"), {})
+
+        sell_rate = gbp_data.get("sell_rate", 0)
+        if sell_rate:
+            valoare = float(sell_rate)
+            _LOGGER.debug("Valoarea principală a senzorului %s (Sell Rate) este: %.4f", self._attr_name, valoare)
+            return valoare
+        _LOGGER.error("Nu am găsit rata de vânzare pentru GBP în JSON pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        data = self.coordinator.data.get("pageProps", {}).get("fxRates", {}).get("cash", {}).get("gbp", {})
-        if not data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului BnrFxRatesGbp.")
-            return {}
-
-        attributes = {
-            "Vânzare": "%.4f" % float(data.get("sell", 0)),
-            "Cumpărare": "%.4f" % float(data.get("buy", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
-        }
-        _LOGGER.debug("Atributele senzorului BnrFxRatesGbp: %s", attributes)
-        return attributes
-
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
-
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul BnrFxRatesGbp a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:currency-gbp"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea Schimb Valutar."""
-        device_info = {
-            "identifiers": {(DOMAIN, "schimbbnr")},
-            "name": "Schimb valutar BNR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Schimb valutar BNR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru BnrFxRatesGbp: %s", device_info)
-        return device_info
-
-
-class DobandaRobor(CoordinatorEntity, SensorEntity):
-    """Clasa senzorului pentru dobânda ROBOR."""
-
-    def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Dobânda ROBOR"
-        self._attr_unique_id = f"{DOMAIN}_dobanda_robor"
-        self._attr_entity_id = "sensor.dobanda_robor"
-
-        _LOGGER.debug("Senzorul DobandaRobor a fost inițializat.")
-
-    @property
-    def native_value(self):
-        """Returnează valoarea principală a senzorului (numărul de perioade ROBOR)."""
         json_data = self.coordinator.data
-        robor_data = json_data.get("pageProps", {}).get("moneyRates", {}).get("robor", {})
+        cec_data = json_data.get("cec", [])
+        gbp_data = next((item for item in cec_data if item["currency"] == "GBP"), {})
 
-        # Numără câte perioade există în datele JSON
-        numar_perioade = sum(1 for key in ["m1", "m3", "m6", "m12"] if key in robor_data and "rate" in robor_data[key])
-        _LOGGER.debug("Valoarea principală (native_value) a senzorului DobandaRobor este: %d", numar_perioade)
-        return numar_perioade
-
-    @property
-    def extra_state_attributes(self):
-        """Returnează atributele suplimentare."""
-        robor_data = self.coordinator.data.get("pageProps", {}).get("moneyRates", {}).get("robor", {})
-        if not robor_data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului DobandaRobor.")
+        if not gbp_data:
+            _LOGGER.debug("Nu există date pentru atributele senzorului %s.", self._attr_name)
             return {}
 
         attributes = {
-            "1 lună": "%.2f" % float(robor_data.get("m1", {}).get("rate", 0)),
-            "3 luni": "%.2f" % float(robor_data.get("m3", {}).get("rate", 0)),
-            "6 luni": "%.2f" % float(robor_data.get("m6", {}).get("rate", 0)),
-            "12 luni": "%.2f" % float(robor_data.get("m12", {}).get("rate", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Vânzare": "%.4f" % float(gbp_data.get("sell_rate", 0)),
+            "Cumpărare": "%.4f" % float(gbp_data.get("buy_rate", 0)),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului DobandaRobor (formatate cu 2 zecimale): %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul DobandaRobor a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:percent"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea Dobânda ROBOR."""
-        device_info = {
-            "identifiers": {(DOMAIN, "dobandarobor")},
-            "name": "Dobândă ROBOR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Dobândă ROBOR",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru DobandaRobor: %s", device_info)
-        return device_info
-
-
-class DobandaEuribor(CoordinatorEntity, SensorEntity):
+class DobandaEuribor(BaseBnrSensor):
     """Clasa senzorului pentru dobânda EURIBOR."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "Dobânda EURIBOR"
-        self._attr_unique_id = f"{DOMAIN}_dobanda_euribor"
-        self._attr_entity_id = "sensor.dobanda_euribor"
-
-        _LOGGER.debug("Senzorul DobandaEuribor a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="Dobânda EURIBOR",
+            unique_id=f"{DOMAIN}_dobanda_euribor",
+            entity_id="sensor.dobanda_euribor",
+            icon="mdi:percent",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (numărul de perioade EURIBOR)."""
+        """Returnează valoarea principală a senzorului (dobânda EURIBOR 1-week)."""
         json_data = self.coordinator.data
-        euribor_data = json_data.get("pageProps", {}).get("moneyRates", {}).get("euribor", {})
-
-        # Numără câte perioade există în datele JSON
-        numar_perioade = sum(1 for key in ["m1", "m3", "m6", "m12"] if key in euribor_data and "rate" in euribor_data[key])
-
-        _LOGGER.debug("Valoarea principală (native_value) a senzorului DobandaEuribor este: %d", numar_perioade)
-        return numar_perioade
+        euribor_data = json_data.get("euribor", {}).get("1-week", {})
+        valoare = float(euribor_data.get("rate", 0))
+        _LOGGER.debug("Valoarea principală (native_value) a senzorului %s este: %.3f", self._attr_name, valoare)
+        return valoare
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        euribor_data = self.coordinator.data.get("pageProps", {}).get("moneyRates", {}).get("euribor", {})
+        json_data = self.coordinator.data
+        euribor_data = json_data.get("euribor", {})
         if not euribor_data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului DobandaEuribor.")
+            _LOGGER.debug("Nu există date pentru atributele senzorului %s.", self._attr_name)
             return {}
 
         attributes = {
-            "1 lună": "%.2f" % float(euribor_data.get("m1", {}).get("rate", 0)),
-            "3 luni": "%.2f" % float(euribor_data.get("m3", {}).get("rate", 0)),
-            "6 luni": "%.2f" % float(euribor_data.get("m6", {}).get("rate", 0)),
-            "12 luni": "%.2f" % float(euribor_data.get("m12", {}).get("rate", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "1 lună": "%.3f" % float(euribor_data.get("1-month", {}).get("rate", 0)),
+            "3 luni": "%.3f" % float(euribor_data.get("3-months", {}).get("rate", 0)),
+            "6 luni": "%.3f" % float(euribor_data.get("6-months", {}).get("rate", 0)),
+            "12 luni": "%.3f" % float(euribor_data.get("12-months", {}).get("rate", 0)),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului DobandaEuribor (formatate cu 2 zecimale): %s", attributes)
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s (formatate cu 3 zecimale): %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
+
+class DobandaRobor(BaseBnrSensor):
+    """Clasa senzorului pentru dobânda ROBOR."""
+
+    def __init__(self, coordinator):
+        super().__init__(
+            coordinator,
+            name="Dobânda ROBOR",
+            unique_id=f"{DOMAIN}_dobanda_robor",
+            entity_id="sensor.dobanda_robor",
+            icon="mdi:calendar-multiselect-outline",
+        )
 
     @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
+    def native_value(self):
+        """Returnează valoarea principală a senzorului (data extragerii)."""
+        json_data = self.coordinator.data
+        robor_data = json_data.get("robor", [])
 
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul DobandaEuribor a fost setat la: %s", value)
+        if not robor_data:
+            _LOGGER.error("Nu există date în JSON pentru senzorul %s.", self._attr_name)
+            return None
+
+        # Luăm data din primul element al listei (cel mai nou)
+        data_extragere = robor_data[0].get("Data")
+        if data_extragere:
+            _LOGGER.debug("Valoarea principală (native_value) a senzorului %s este data: %s", self._attr_name, data_extragere)
+            return data_extragere
+
+        _LOGGER.error("Nu am găsit data pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:percent"
+    def extra_state_attributes(self):
+        """Returnează atributele suplimentare."""
+        robor_data = self.coordinator.data.get("robor", [])
 
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea Dobânda EURIBOR."""
-        device_info = {
-            "identifiers": {(DOMAIN, "dobandaeurobor")},
-            "name": "Dobândă EURIBOR",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Dobândă EURIBOR",
-            "entry_type": DeviceEntryType.SERVICE,
+        if not robor_data:
+            _LOGGER.debug("Nu există date pentru atributele senzorului %s.", self._attr_name)
+            return {}
+
+        # Luăm primul element din listă (cel mai nou)
+        cel_mai_nou = robor_data[0]
+
+        attributes = {
+            "1 lună": "%.2f" % float(cel_mai_nou.get("BBZ_BOR1M", "0").replace(",", ".")),
+            "3 luni": "%.2f" % float(cel_mai_nou.get("BBZ_BOR3M", "0").replace(",", ".")),
+            "6 luni": "%.2f" % float(cel_mai_nou.get("BBZ_BOR6M", "0").replace(",", ".")),
+            "12 luni": "%.2f" % float(cel_mai_nou.get("BBZ_BOR12M", "0").replace(",", ".")),
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Informațiile dispozitivului pentru DobandaEuribor: %s", device_info)
-        return device_info
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
+        return attributes
 
 
-class IRCCzilnic(CoordinatorEntity, SensorEntity):
+class IRCCzilnic(BaseBnrSensor):
     """Clasa senzorului pentru IRCC zilnic."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "IRCC zilnic"
-        self._attr_unique_id = f"{DOMAIN}_ircc_zilnic"
-        self._attr_entity_id = "sensor.ircc_zilnic"
-
-        _LOGGER.debug("Senzorul IRCCzilnic a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="IRCC zilnic",
+            unique_id=f"{DOMAIN}_ircc_zilnic",
+            entity_id="sensor.ircc_zilnic",
+            icon="mdi:calendar-clock",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (rate)."""
+        """Returnează valoarea principală a senzorului (PMZ_RT din cea mai recentă dată)."""
         json_data = self.coordinator.data
-        ircc_data = json_data.get("pageProps", {}).get("moneyRates", {}).get("irccDaily", {})
-        valoare = float(ircc_data.get("rate", 0))
-        _LOGGER.debug("Valoarea principală (native_value - rate) a senzorului IRCCzilnic este: %.2f", valoare)
+        ircc_data = json_data.get("ircc_zilnic", [])
+
+        if not ircc_data or len(ircc_data) < 1:
+            _LOGGER.error("Nu există date disponibile pentru senzorul %s.", self._attr_name)
+            return None
+
+        valoare = float(ircc_data[0].get("PMZ_RT").replace(",", "."))
+        _LOGGER.debug("Valoarea principală (native_value) a senzorului %s este: %.2f", self._attr_name, valoare)
         return valoare
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        ircc_data = self.coordinator.data.get("pageProps", {}).get("moneyRates", {}).get("irccDaily", {})
-        if not ircc_data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului IRCCzilnic.")
+        json_data = self.coordinator.data
+        ircc_data = json_data.get("ircc_zilnic", [])
+
+        if not ircc_data or len(ircc_data) < 2:
+            _LOGGER.error("Nu există suficiente date pentru a calcula modificarea senzorului %s.", self._attr_name)
             return {}
 
+        valoare_curenta = float(ircc_data[0].get("PMZ_RT").replace(",", "."))
+        valoare_anterioara = float(ircc_data[1].get("PMZ_RT").replace(",", "."))
+        modificare = valoare_curenta - valoare_anterioara
+
         attributes = {
-            "Modificare": "%.2f" % float(ircc_data.get("change", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Modificare": "%.2f" % modificare,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului IRCCzilnic (formatate cu 2 zecimale): %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
 
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
 
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul IRCCzilnic a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:calendar-clock"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea IRCC zilnic."""
-        device_info = {
-            "identifiers": {(DOMAIN, "ircc")},
-            "name": "Indicele de referință pentru creditele consumatorilor",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "IIndicele de referință pentru creditele consumatorilor",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru IRCCzilnic: %s", device_info)
-        return device_info
-
-
-class IRCCTrimestrial(CoordinatorEntity, SensorEntity):
+class IRCCTrimestrial(BaseBnrSensor):
     """Clasa senzorului pentru IRCC Trimestrial."""
 
     def __init__(self, coordinator):
-        """Inițializează senzorul."""
-        super().__init__(coordinator)
-        self._attr_name = "IRCC trimestrial"
-        self._attr_unique_id = f"{DOMAIN}_ircc_trimestrial"
-        self._attr_entity_id = "sensor.ircc_trimestrial"
-
-        _LOGGER.debug("Senzorul IRCCTrimestrial a fost inițializat.")
+        super().__init__(
+            coordinator,
+            name="IRCC trimestrial",
+            unique_id=f"{DOMAIN}_ircc_trimestrial",
+            entity_id="sensor.ircc_trimestrial",
+            icon="mdi:calendar-month",
+        )
 
     @property
     def native_value(self):
-        """Returnează valoarea principală a senzorului (rate)."""
+        """Returnează valoarea principală a senzorului (PMRT_IR din cea mai recentă dată)."""
         json_data = self.coordinator.data
-        ircc_data = json_data.get("pageProps", {}).get("moneyRates", {}).get("ircc", {})
-        valoare = float(ircc_data.get("rate", 0))
-        _LOGGER.debug("Valoarea principală (native_value - rate) a senzorului IRCCTrimestrial este: %.2f", valoare)
-        return valoare
+        ircc_data = json_data.get("ircc_trimestru", [])
+
+        if ircc_data:
+            valoare = float(ircc_data[0].get("PMRT_IR", "0").replace(",", "."))
+            _LOGGER.debug("Valoarea principală (native_value) a senzorului %s este: %.2f", self._attr_name, valoare)
+            return valoare
+
+        _LOGGER.warning("Nu există date disponibile pentru senzorul %s.", self._attr_name)
+        return None
 
     @property
     def extra_state_attributes(self):
         """Returnează atributele suplimentare."""
-        ircc_data = self.coordinator.data.get("pageProps", {}).get("moneyRates", {}).get("ircc", {})
-        if not ircc_data:
-            _LOGGER.debug("Nu există date pentru atributele senzorului IRCCTrimestrial.")
+        json_data = self.coordinator.data
+        ircc_data = json_data.get("ircc_trimestru", [])
+
+        if len(ircc_data) < 2:
+            _LOGGER.debug("Nu există suficiente date pentru atributele senzorului %s.", self._attr_name)
             return {}
 
+        # Datele pentru cea mai recentă și cea anterioară valoare
+        valoare_curenta = float(ircc_data[0].get("PMRT_IR", "0").replace(",", "."))
+        valoare_anterioara = float(ircc_data[1].get("PMRT_IR", "0").replace(",", "."))
+
+        # Calcul modificare
+        modificare = valoare_curenta - valoare_anterioara
+
         attributes = {
-            "Modificare": "%.2f" % float(ircc_data.get("change", 0)),
-            ATTR_ATTRIBUTION: "Date furnizate de BNR prin www.finradar.ro",
+            "Modificare": "%.2f" % modificare,
+            ATTR_ATTRIBUTION: ATTRIBUTION,
         }
-        _LOGGER.debug("Atributele senzorului IRCCTrimestrial (formatate cu 2 zecimale): %s", attributes)
+
+        _LOGGER.debug("Atributele suplimentare pentru senzorul %s: %s", self._attr_name, attributes)
         return attributes
-
-    @property
-    def unique_id(self):
-        """Returnează identificatorul unic al senzorului."""
-        return self._attr_unique_id
-
-    @property
-    def entity_id(self):
-        """Returnează identificatorul explicit al entității."""
-        return self._attr_entity_id
-
-    @entity_id.setter
-    def entity_id(self, value):
-        """Setează identificatorul explicit al entității."""
-        self._attr_entity_id = value
-        _LOGGER.debug("Entity ID pentru senzorul IRCCTrimestrial a fost setat la: %s", value)
-
-    @property
-    def icon(self):
-        """Pictograma senzorului."""
-        return "mdi:calendar-month"
-
-    @property
-    def device_info(self):
-        """Informații despre dispozitiv pentru integrarea IRCC."""
-        device_info = {
-            "identifiers": {(DOMAIN, "ircc")},
-            "name": "Indicele de referință pentru creditele consumatorilor",
-            "manufacturer": "Ciprian Nicolae (cnecrea)",
-            "model": "Indicele de referință pentru creditele consumatorilor",
-            "entry_type": DeviceEntryType.SERVICE,
-        }
-        _LOGGER.debug("Informațiile dispozitivului pentru IRCCTrimestrial: %s", device_info)
-        return device_info
