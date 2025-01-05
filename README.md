@@ -9,10 +9,10 @@ Această integrare pentru Home Assistant oferă monitorizare completă a cursuri
 ## 🌟 Caracteristici
 
 ### 🏦 **Curs valutar BNR**:
--  Curs valutar RON / EUR.
--  Curs valutar RON / USD.
--  Curs valutar RON / GBP.
--  Curs valutar RON / CHF.
+-  Curs valutar RON → EUR.
+-  Curs valutar RON → USD.
+-  Curs valutar RON → GBP.
+-  Curs valutar RON → CHF.
 
 **📊 Atribute disponibile**:
   - Valoare curentă.
@@ -23,10 +23,10 @@ Această integrare pentru Home Assistant oferă monitorizare completă a cursuri
 ---
 
 ### 🇷🇴 **Schimb valutar BNR**:
--  Schimb valutar RON / EUR.
--  Schimb valutar RON / USD.
--  Schimb valutar RON / GBP.
--  Schimb valutar RON / CHF.
+-  Schimb valutar RON → EUR.
+-  Schimb valutar RON → USD.
+-  Schimb valutar RON → GBP.
+-  Schimb valutar RON → CHF.
 
 **📊 Atribute disponibile**:
   - Vânzare.
