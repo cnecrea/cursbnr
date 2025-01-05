@@ -2,7 +2,7 @@
 DOMAIN = "cursbnr"
 
 # URL pentru API-ul BNR
-URL = "https://www.finradar.ro/_next/data/1735757776365/index.json"
+URL = "https://dev.syspro.ro/homeassistant/cursbnr_data.json"
 
 # Interval implicit de actualizare (în secunde)
 DEFAULT_UPDATE_INTERVAL = 300  # 5 minute
