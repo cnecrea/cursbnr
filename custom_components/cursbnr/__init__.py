@@ -73,16 +73,13 @@ class AllDataCoordinator(DataUpdateCoordinator):
 async def async_setup_entry(hass, config_entry):
     """Configurează integrarea cu un singur coordonator."""
     hass.data.setdefault(DOMAIN, {})
-    
     update_interval = config_entry.options.get("scan_interval", DEFAULT_UPDATE_INTERVAL)
-    
     coordinator = AllDataCoordinator(hass, name=DOMAIN, update_interval=update_interval)
     await coordinator.async_config_entry_first_refresh()
     
     hass.data[DOMAIN][config_entry.entry_id] = coordinator
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(config_entry, "sensor")
-    )
+    await hass.config_entries.async_forward_entry_setups(config_entry, ["sensor"])
+    
     return True
 
 async def async_unload_entry(hass, config_entry):
