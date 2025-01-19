@@ -1,0 +1,42 @@
+{
+    "title": "BNR Exchange Rates",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Initial Configuration",
+                "description": "Set up the integration to display updated exchange rates.",
+                "data": {
+                    "update_interval": "Update interval (in seconds)"
+                }
+            }
+        },
+        "error": {
+            "invalid_update_interval": "The update interval must be between 60 and 3600 seconds."
+        },
+        "abort": {
+            "already_configured": "This integration is already configured."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Additional Settings",
+                "description": "Update the options for the integration.",
+                "data": {
+                    "update_interval": "Update interval (in seconds)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cursbnr": {
+                "name": "BNR Exchange Rate",
+                "state": {
+                    "updating": "Updating",
+                    "error": "Update error"
+                }
+            }
+        }
+    }
+}
