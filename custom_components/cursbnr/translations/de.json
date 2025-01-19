@@ -1,0 +1,42 @@
+{
+    "title": "BNR Wechselkurse",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Erstkonfiguration",
+                "description": "Richten Sie die Integration ein, um aktualisierte Wechselkurse anzuzeigen.",
+                "data": {
+                    "update_interval": "Aktualisierungsintervall (in Sekunden)"
+                }
+            }
+        },
+        "error": {
+            "invalid_update_interval": "Das Aktualisierungsintervall muss zwischen 60 und 3600 Sekunden liegen."
+        },
+        "abort": {
+            "already_configured": "Diese Integration ist bereits konfiguriert."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Zusätzliche Einstellungen",
+                "description": "Aktualisieren Sie die Optionen für die Integration.",
+                "data": {
+                    "update_interval": "Aktualisierungsintervall (in Sekunden)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cursbnr": {
+                "name": "BNR Wechselkurs",
+                "state": {
+                    "updating": "Aktualisierung läuft",
+                    "error": "Aktualisierungsfehler"
+                }
+            }
+        }
+    }
+}
