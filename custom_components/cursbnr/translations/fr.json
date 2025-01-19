@@ -1,0 +1,42 @@
+{
+    "title": "Taux de Change BNR",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configuration Initiale",
+                "description": "Configurez l'intégration pour afficher les taux de change mis à jour.",
+                "data": {
+                    "update_interval": "Intervalle de mise à jour (en secondes)"
+                }
+            }
+        },
+        "error": {
+            "invalid_update_interval": "L'intervalle de mise à jour doit être compris entre 60 et 3600 secondes."
+        },
+        "abort": {
+            "already_configured": "Cette intégration est déjà configurée."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Paramètres Supplémentaires",
+                "description": "Mettez à jour les options pour l'intégration.",
+                "data": {
+                    "update_interval": "Intervalle de mise à jour (en secondes)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cursbnr": {
+                "name": "Taux de Change BNR",
+                "state": {
+                    "updating": "Mise à jour en cours",
+                    "error": "Erreur de mise à jour"
+                }
+            }
+        }
+    }
+}
