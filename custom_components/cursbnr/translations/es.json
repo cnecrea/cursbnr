@@ -1,0 +1,42 @@
+{
+    "title": "Tipos de Cambio BNR",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configuración Inicial",
+                "description": "Configura la integración para mostrar los tipos de cambio actualizados.",
+                "data": {
+                    "update_interval": "Intervalo de actualización (en segundos)"
+                }
+            }
+        },
+        "error": {
+            "invalid_update_interval": "El intervalo de actualización debe estar entre 60 y 3600 segundos."
+        },
+        "abort": {
+            "already_configured": "Esta integración ya está configurada."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Configuraciones Adicionales",
+                "description": "Actualiza las opciones para la integración.",
+                "data": {
+                    "update_interval": "Intervalo de actualización (en segundos)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cursbnr": {
+                "name": "Tipo de Cambio BNR",
+                "state": {
+                    "updating": "Actualizando",
+                    "error": "Error de actualización"
+                }
+            }
+        }
+    }
+}
