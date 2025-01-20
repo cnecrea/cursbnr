@@ -1,14 +1,12 @@
 {
-    "dependencies": [],
-    "requirements": [],
-    "iot_class": "cloud_polling",
-    "config_flow": true,
     "domain": "cursbnr",
     "name": "Curs valutar BNR",
-    "version": "1.1.0",
-    "documentation": "https://github.com/cnecrea/cursbnr",
-    "issue_tracker": "https://github.com/cnecrea/cursbnr/issues",
     "codeowners": ["@cnecrea"],
-    "translations": "translations",
-    "platforms": ["sensor"]
+    "config_flow": true,
+    "dependencies": [],
+    "documentation": "https://github.com/cnecrea/cursbnr",
+    "iot_class": "cloud_polling",
+    "issue_tracker": "https://github.com/cnecrea/cursbnr/issues",
+    "requirements": [],
+    "version": "1.1.0"
 }
