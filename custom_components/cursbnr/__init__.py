@@ -1,14 +1,16 @@
 """Inițializarea integrării Curs valutar BNR."""
 from datetime import datetime, time, timedelta
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.entity import Entity
 import asyncio
 import logging
 import aiohttp
 from .const import DOMAIN, DEFAULT_UPDATE_INTERVAL, URL
 
-_LOGGER = logging.getLogger(__name__)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+_LOGGER = logging.getLogger(__name__)
 
 class AllDataCoordinator(DataUpdateCoordinator):
     """Coordinator unic pentru integrarea care aduce toate datele."""
