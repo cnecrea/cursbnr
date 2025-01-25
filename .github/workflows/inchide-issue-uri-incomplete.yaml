@@ -48,7 +48,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/cnecrea/cursbnr/issues/${{ github.event.issue.number }}/comments \
-            -d '{"body": "Acest issue a fost închis automat deoarece nu au fost completate toate câmpurile obligatorii.\nTe rog să completezi informațiile necesare, inclusiv versiunea integrării, și să confirmi că ai citit [FAQ.md](https://github.com/cnecrea/cursbnr/blob/main/FAQ.md). Dacă problema persistă, te rugăm să creezi un nou issue."}'
+            -d '{"body": "Acest issue a fost închis automat deoarece nu au fost completate toate câmpurile obligatorii.\nTe rog să completezi informațiile necesare, inclusiv versiunea integrării, și să confirmi că ai citit [FAQ.md](https://github.com/cnecrea/cursbnr/blob/main/FAQ.md).\nDacă problema persistă, te rugăm să creezi un nou issue."}'
 
       # 3. Blochează issue-ul pentru a preveni comentarii suplimentare
       - name: Blochează issue-ul
