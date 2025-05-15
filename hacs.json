@@ -1,4 +1,5 @@
 {
-    "name": "Curs valutar BNR",
-    "render_readme": true
+  "name": "Curs valutar BNR",
+  "render_readme": true,
+  "country": ["RO"]
 }
