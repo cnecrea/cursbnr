@@ -4,7 +4,6 @@
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/cnecrea/cursbnr)](https://github.com/cnecrea/cursbnr/releases)
 ![Total descărcări pentru toate versiunile](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cnecrea/cursbnr/main/statistici/shields/descarcari.json)
-![Descărcări pentru ultima versiune](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cnecrea/cursbnr/main/statistici/shields/ultima_release.json)
 
 
 Această integrare pentru Home Assistant oferă monitorizare completă a cursurilor valutare și a dobânzilor oficiale furnizate de **BNR**. Integrarea afișează informații despre cursuri valutare oficiale, schimb valutar și dobânzi ROBOR/EURIBOR/IRCC. 🚀
