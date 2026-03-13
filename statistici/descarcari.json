@@ -1,8 +1,22 @@
 {
-  "generat_la": "2026-03-13T03:10:41.060Z",
+  "generat_la": "2026-03-13T23:49:01.017Z",
   "repository": "cnecrea/cursbnr",
   "total_descarcari": 58,
   "pe_release": [
+    {
+      "tag": "1.3.0",
+      "nume": "1.3.0",
+      "prerelease": false,
+      "publicat_la": "2026-03-13T23:48:53Z",
+      "descarcari": 0,
+      "assets": [
+        {
+          "nume": "cursbnr.zip",
+          "descarcari": 0,
+          "url": "https://github.com/cnecrea/cursbnr/releases/download/1.3.0/cursbnr.zip"
+        }
+      ]
+    },
     {
       "tag": "1.2.1",
       "nume": "1.2.1",
@@ -61,6 +75,12 @@
     }
   ],
   "pe_asset": [
+    {
+      "tag": "1.3.0",
+      "nume": "cursbnr.zip",
+      "descarcari": 0,
+      "url": "https://github.com/cnecrea/cursbnr/releases/download/1.3.0/cursbnr.zip"
+    },
     {
       "tag": "1.2.1",
       "nume": "cursbnr.zip",
