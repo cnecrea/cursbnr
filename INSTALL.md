@@ -1,4 +1,40 @@
-Acest YAML este creat pentru a afișa informațiile din integrarea Curs valutar BNR într-un dashboard Lovelace. Cardurile includ detalii despre cursurile oficiale ale principalelor valute, ratele de schimb valutar în numerar și dobânzile oficiale, precum ROBOR, EURIBOR și IRCC. Fiecare card este configurat pentru a evidenția atât valorile principale, cât și atributele relevante ale fiecărui senzor.
+# Instalare și configurare dashboard Lovelace
+
+Acest YAML este creat pentru a afișa informațiile din integrarea Curs valutar BNR într-un dashboard Lovelace. Cardurile includ cursuri oficiale, rate de schimb valutar în numerar și dobânzi (ROBOR, EURIBOR, IRCC).
+
+> **Notă:** Senzorii se creează dinamic — apar doar când API-ul returnează date pentru categoria respectivă. Dacă un senzor nu apare, înseamnă că datele nu sunt disponibile momentan.
+
+---
+
+## Senzori disponibili
+
+### Curs valutar BNR
+| Senzor | Entity ID |
+|---|---|
+| Curs RON → EUR | `sensor.curs_valutar_ron_eur` |
+| Curs RON → USD | `sensor.curs_valutar_ron_usd` |
+| Curs RON → GBP | `sensor.curs_valutar_ron_gbp` |
+| Curs RON → CHF | `sensor.curs_valutar_ron_chf` |
+
+### Schimb valutar (CEC)
+| Senzor | Entity ID |
+|---|---|
+| Schimb RON → EUR | `sensor.schimb_valutar_ron_eur` |
+| Schimb RON → USD | `sensor.schimb_valutar_ron_usd` |
+| Schimb RON → GBP | `sensor.schimb_valutar_ron_gbp` |
+| Schimb RON → CHF | `sensor.schimb_valutar_ron_chf` |
+
+### Dobânzi și indici
+| Senzor | Entity ID |
+|---|---|
+| Dobânda ROBOR | `sensor.dobanda_robor` |
+| Dobânda EURIBOR | `sensor.dobanda_euribor` |
+| IRCC zilnic | `sensor.ircc_zilnic` |
+| IRCC trimestrial | `sensor.ircc_trimestrial` |
+
+---
+
+## Exemplu dashboard Lovelace
 
 ```yaml
 views:
@@ -7,79 +43,79 @@ views:
     cards:
       - type: markdown
         content: >
-          ### 🏦 Monitorizare Cursuri Valutare și Dobânzi
-          Acest dashboard afișează informații actualizate despre cursurile valutare oficiale, schimburi valutare în numerar și dobânzi furnizate de BNR.
-          Toate datele sunt actualizate automat în funcție de intervalul configurat în integrare.
+          ### Monitorizare Cursuri Valutare și Dobânzi
 
-      # Card pentru Cursuri Valutare
+          Datele sunt actualizate automat conform intervalului configurat în integrare.
+
+      # Card Cursuri Valutare
       - type: entities
         title: Curs Valutar BNR
         entities:
-          - entity: sensor.bnr_rates_ron_eur
+          - entity: sensor.curs_valutar_ron_eur
             name: Curs EUR
           - type: attribute
-            entity: sensor.bnr_rates_ron_eur
+            entity: sensor.curs_valutar_ron_eur
             attribute: Valoare curentă
             name: Valoare curentă
           - type: attribute
-            entity: sensor.bnr_rates_ron_eur
+            entity: sensor.curs_valutar_ron_eur
             attribute: Valoare anterioară
             name: Valoare anterioară
           - type: attribute
-            entity: sensor.bnr_rates_ron_eur
+            entity: sensor.curs_valutar_ron_eur
             attribute: Schimbare
             name: Schimbare
           - type: attribute
-            entity: sensor.bnr_rates_ron_eur
+            entity: sensor.curs_valutar_ron_eur
             attribute: Schimbare procentuală
             name: Schimbare procentuală
 
-          - entity: sensor.bnr_rates_ron_usd
+          - entity: sensor.curs_valutar_ron_usd
             name: Curs USD
           - type: attribute
-            entity: sensor.bnr_rates_ron_usd
+            entity: sensor.curs_valutar_ron_usd
             attribute: Valoare curentă
             name: Valoare curentă
           - type: attribute
-            entity: sensor.bnr_rates_ron_usd
+            entity: sensor.curs_valutar_ron_usd
             attribute: Valoare anterioară
             name: Valoare anterioară
           - type: attribute
-            entity: sensor.bnr_rates_ron_usd
+            entity: sensor.curs_valutar_ron_usd
             attribute: Schimbare
             name: Schimbare
           - type: attribute
-            entity: sensor.bnr_rates_ron_usd
+            entity: sensor.curs_valutar_ron_usd
             attribute: Schimbare procentuală
             name: Schimbare procentuală
 
-      # Card pentru Schimburi Valutare
+      # Card Schimb Valutar
       - type: entities
         title: Schimb Valutar (Cash)
         entities:
-          - entity: sensor.bnr_fx_rates_cash_eur
+          - entity: sensor.schimb_valutar_ron_eur
             name: Schimb EUR
           - type: attribute
-            entity: sensor.bnr_fx_rates_cash_eur
+            entity: sensor.schimb_valutar_ron_eur
             attribute: Vânzare
             name: Vânzare
           - type: attribute
-            entity: sensor.bnr_fx_rates_cash_eur
+            entity: sensor.schimb_valutar_ron_eur
             attribute: Cumpărare
             name: Cumpărare
 
-          - entity: sensor.bnr_fx_rates_cash_usd
+          - entity: sensor.schimb_valutar_ron_usd
             name: Schimb USD
           - type: attribute
-            entity: sensor.bnr_fx_rates_cash_usd
+            entity: sensor.schimb_valutar_ron_usd
             attribute: Vânzare
             name: Vânzare
           - type: attribute
-            entity: sensor.bnr_fx_rates_cash_usd
+            entity: sensor.schimb_valutar_ron_usd
             attribute: Cumpărare
             name: Cumpărare
 
-      # Card pentru Dobânzi ROBOR, EURIBOR și IRCC
+      # Card Dobânzi ROBOR și EURIBOR
       - type: entities
         title: Dobânzi ROBOR și EURIBOR
         entities:
@@ -121,6 +157,7 @@ views:
             attribute: 12 luni
             name: 12 luni
 
+      # Card Indici IRCC
       - type: entities
         title: Indici IRCC
         entities:
@@ -137,3 +174,4 @@ views:
             entity: sensor.ircc_trimestrial
             attribute: Modificare
             name: Modificare
+```
