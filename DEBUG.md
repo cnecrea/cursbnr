@@ -1,74 +1,110 @@
+# Debugging pentru integrarea Curs valutar BNR
 
-# Debugging pentru integrarea personalizată
-
-Acest ghid oferă pașii necesari pentru a activa logarea detaliată și pentru a analiza problemele dintr-o integrare personalizată.
+Ghid pentru activarea logării detaliate și analiza problemelor.
 
 ---
 
 ## 1. Activează logarea detaliată
 
-### Adaugă în `configuration.yaml`:
-Pentru a activa logarea detaliată pentru integrarea ta personalizată, editează fișierul `configuration.yaml` și adaugă următoarele:
+Editează `configuration.yaml` și adaugă:
+
 ```yaml
 logger:
   default: warning
   logs:
     custom_components.cursbnr: debug
-    homeassistant.const: critical
-    homeassistant.loader: critical
-    homeassistant.helpers.frame: critical
+    custom_components.cursbnr.coordinator: debug
+    custom_components.cursbnr.sensor: debug
+    custom_components.cursbnr.helpers: debug
 ```
 
-### Restartează sistemul
-După ce ai salvat fișierul, repornește sistemul Home Assistant pentru ca modificările să fie aplicate.
+Repornește Home Assistant pentru a aplica modificările.
 
 ---
 
-## 2. Analizează logurile
+## 2. Ce module poți monitoriza
 
-### Localizarea logurilor
-Logurile se află, de obicei, în fișierul `home-assistant.log`, în directorul principal al Home Assistant.
+Integrarea e structurată pe module separate. Poți activa debug selectiv:
 
-### Filtrarea logurilor
-Pentru a găsi rapid informațiile relevante despre integrarea ta, poți folosi comanda:
+| Modul | Ce loghează |
+|---|---|
+| `custom_components.cursbnr` | Setup, unload, options listener |
+| `custom_components.cursbnr.coordinator` | Preluare date API, interval orar, erori fetch |
+| `custom_components.cursbnr.sensor` | Creare/eliminare dinamică senzori, SensorManager |
+| `custom_components.cursbnr.helpers` | Conversii date, extragere valori, erori parsare |
+| `custom_components.cursbnr.config_flow` | ConfigFlow și OptionsFlow |
+
+Dacă vrei doar coordinator + sensor (cele mai utile):
+
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.cursbnr.coordinator: debug
+    custom_components.cursbnr.sensor: debug
+```
+
+---
+
+## 3. Analizează logurile
+
+### Localizare
+Logurile se află în fișierul `home-assistant.log` din directorul principal al Home Assistant.
+
+### Filtrare
 ```bash
 grep 'custom_components.cursbnr' home-assistant.log
 ```
 
+### Filtrare doar erori
+```bash
+grep 'custom_components.cursbnr' home-assistant.log | grep -i 'error\|warning'
+```
+
 ---
 
-## Notă
-Asigură-te că toate configurațiile din `configuration.yaml` sunt corecte înainte de a începe procesul de debugging.
+## 4. Mesaje frecvente
 
+### Normale (INFO/DEBUG)
+- `Integrarea Curs valutar BNR a fost configurată cu succes` — setup reușit
+- `Senzori creați dinamic: ...` — senzorii au fost creați pe baza datelor disponibile
+- `Senzor eliminat complet: ...` — senzor eliminat pentru că datele au dispărut
+- `Prima rulare - se preiau datele indiferent de oră` — prima cerere API
+- `Ora curentă este în afara intervalului 13:00-17:00` — se păstrează datele existente
 
+### Erori
+- `Eroare la comunicarea cu API-ul BNR` — API indisponibil, se reîncearcă automat
+- `Eroare HTTP 4xx/5xx la preluarea datelor` — probleme server API
+- `Nu s-a putut converti valoarea la float` — date invalide în răspunsul API
 
-# Cum să postezi cod în discuții
+---
 
-Pentru a posta cod în mod corect și lizibil, utilizează blocuri de cod delimitate de trei backticks (```) urmate de limbajul codului. De exemplu, pentru YAML, folosește:
+## 5. Diagnostice
+
+Alternativă la logare manuală — folosește diagnosticele integrate:
+
+1. **Setări > Dispozitive și servicii > Curs valutar BNR**
+2. Cele **trei puncte** → **Download diagnostics**
+3. Fișierul JSON conține: configurare, stare coordinator, senzori activi, rezumat date
+
+---
+
+## 6. Cum să postezi cod în discuții
+
+Pentru a posta log-uri sau cod pe GitHub, folosește blocuri de cod:
 
 <pre>
 ```yaml
-2025-01-20 15:35:12 INFO     custom_components.example_integration: Initializing Example Integration.
-2025-01-20 15:35:13 DEBUG    custom_components.example_integration: Configuration loaded: {'username': 'test_user', 'update_interval': 30}
-2025-01-20 15:35:14 INFO     custom_components.example_integration.api: Attempting to authenticate user 'test_user'.
-2025-01-20 15:35:15 ERROR    custom_components.example_integration.api: Authentication failed. Invalid credentials provided.
-2025-01-20 15:35:16 DEBUG    custom_components.example_integration: Retrying authentication in 10 seconds.
+2026-03-14 13:35:12 DEBUG custom_components.cursbnr.coordinator: Prima rulare - se preiau datele indiferent de oră
+2026-03-14 13:35:13 DEBUG custom_components.cursbnr.coordinator: Datele au fost preluate cu succes de la API
+2026-03-14 13:35:13 INFO  custom_components.cursbnr.sensor: Senzori creați dinamic: bnr_rates_ron_eur, bnr_rates_ron_usd
 ```
 </pre>
 
-Rezultatul va arăta astfel:
+Rezultatul va fi formatat și ușor de citit:
 
 ```yaml
-2025-01-20 15:35:12 INFO     custom_components.example_integration: Initializing Example Integration.
-2025-01-20 15:35:13 DEBUG    custom_components.example_integration: Configuration loaded: {'username': 'test_user', 'update_interval': 30}
-2025-01-20 15:35:14 INFO     custom_components.example_integration.api: Attempting to authenticate user 'test_user'.
-2025-01-20 15:35:15 ERROR    custom_components.example_integration.api: Authentication failed. Invalid credentials provided.
-2025-01-20 15:35:16 DEBUG    custom_components.example_integration: Retrying authentication in 10 seconds.
+2026-03-14 13:35:12 DEBUG custom_components.cursbnr.coordinator: Prima rulare - se preiau datele indiferent de oră
+2026-03-14 13:35:13 DEBUG custom_components.cursbnr.coordinator: Datele au fost preluate cu succes de la API
+2026-03-14 13:35:13 INFO  custom_components.cursbnr.sensor: Senzori creați dinamic: bnr_rates_ron_eur, bnr_rates_ron_usd
 ```
-
-## Pași pentru a posta cod:
-1. Scrie ` ```yaml ` (trei backticks urmate de "yaml").
-2. Adaugă codul tău pe liniile următoare.
-3. Încheie cu alte trei backticks: ` ``` `.
-
-Astfel, codul va fi formatat corespunzător și ușor de citit de ceilalți utilizatori.
