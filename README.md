@@ -16,7 +16,7 @@
 [![Limbaj Principal](https://img.shields.io/github/languages/top/cnecrea/cursbnr)](https://github.com/cnecrea/cursbnr)
 [![Total descărcări](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cnecrea/cursbnr/main/statistici/shields/descarcari.json)](https://github.com/cnecrea/cursbnr/releases)
 [![Descărcări ultima versiune](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cnecrea/cursbnr/main/statistici/shields/ultima_release.json)](https://github.com/cnecrea/cursbnr/releases/latest)
-![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fcnecrea%2Fcursbnr&label=vizitatori&icon=github&color=%23198754&message=&style=flat&tz=Europe%2FBucharest)
+![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fcnecrea%2Fcursbnr&label=afi%C8%99%C4%83ri&icon=github&color=%23198754&message=&style=flat&tz=Europe%2FBucharest)
 
 
 Integrare pentru Home Assistant care oferă monitorizare completă a cursurilor valutare și a dobânzilor oficiale furnizate de BNR. Senzorii se creează dinamic — apar doar când datele sunt disponibile și se elimină automat când datele dispar.
