@@ -1,6 +1,4 @@
-![BNR](https://github.com/user-attachments/assets/a2f7ae7c-6ca0-4c8d-b5f0-3c0f6517fefc)
-
-# Curs valutar BNR - Integrare pentru Home Assistant
+# Curs valutar BNR — Integrare Home Assistant
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.11%2B-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
