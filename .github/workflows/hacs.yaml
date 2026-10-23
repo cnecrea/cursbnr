@@ -1,3 +1,4 @@
+---
 name: HACS Combined Jobs
 
 on:
@@ -34,3 +35,4 @@ jobs:
         uses: hacs/action@main
         with:
           category: "integration" 
+          ignore: "license"
