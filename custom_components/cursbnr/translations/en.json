@@ -4,9 +4,12 @@
     "step": {
       "user": {
         "title": "Initial Configuration",
-        "description": "Set up the integration to display updated exchange rates from the National Bank of Romania.",
+        "description": "Set up the integration to display the exchange rates and reference interest rates published by the National Bank of Romania: BNR rates, CEC exchange rates, ROBOR, EURIBOR and IRCC.",
         "data": {
           "update_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "update_interval": "How often the data is checked between 13:00 and 17:00, when BNR publishes the day's values. Outside this window the latest data is kept. Between 60 and 3600 seconds."
         }
       }
     },
@@ -24,6 +27,9 @@
         "description": "Update the settings for the BNR Exchange Rates integration.",
         "data": {
           "update_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "update_interval": "How often the data is checked between 13:00 and 17:00, when BNR publishes the day's values. Outside this window the latest data is kept. Between 60 and 3600 seconds."
         }
       }
     }

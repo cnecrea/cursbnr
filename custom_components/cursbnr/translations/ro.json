@@ -4,14 +4,17 @@
     "step": {
       "user": {
         "title": "Configurare inițială",
-        "description": "Configurează integrarea pentru a afișa cursurile valutare actualizate de la BNR.",
+        "description": "Configurează integrarea pentru a afișa cursurile valutare și dobânzile de referință publicate de BNR: curs valutar, schimb valutar CEC, ROBOR, EURIBOR și IRCC.",
         "data": {
           "update_interval": "Interval de actualizare (secunde)"
+        },
+        "data_description": {
+          "update_interval": "Cât de des se verifică datele între 13:00 și 17:00, când BNR publică valorile zilei. În afara acestui interval se păstrează ultimele date. Între 60 și 3600 de secunde."
         }
       }
     },
     "error": {
-      "invalid_update_interval": "Intervalul trebuie să fie între 60 și 3600 secunde."
+      "invalid_update_interval": "Intervalul trebuie să fie între 60 și 3600 de secunde."
     },
     "abort": {
       "already_configured": "Această integrare este deja configurată."
@@ -24,6 +27,9 @@
         "description": "Modifică setările integrării Curs valutar BNR.",
         "data": {
           "update_interval": "Interval de actualizare (secunde)"
+        },
+        "data_description": {
+          "update_interval": "Cât de des se verifică datele între 13:00 și 17:00, când BNR publică valorile zilei. În afara acestui interval se păstrează ultimele date. Între 60 și 3600 de secunde."
         }
       }
     }

@@ -1,29 +1,35 @@
 {
-  "title": "Curs valutar BNR",
+  "title": "BNR Exchange Rates",
   "config": {
     "step": {
       "user": {
-        "title": "Configurare inițială",
-        "description": "Configurează integrarea pentru a afișa cursurile valutare actualizate de la BNR.",
+        "title": "Initial Configuration",
+        "description": "Set up the integration to display the exchange rates and reference interest rates published by the National Bank of Romania: BNR rates, CEC exchange rates, ROBOR, EURIBOR and IRCC.",
         "data": {
-          "update_interval": "Interval de actualizare (secunde)"
+          "update_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "update_interval": "How often the data is checked between 13:00 and 17:00, when BNR publishes the day's values. Outside this window the latest data is kept. Between 60 and 3600 seconds."
         }
       }
     },
     "error": {
-      "invalid_update_interval": "Intervalul trebuie să fie între 60 și 3600 secunde."
+      "invalid_update_interval": "The update interval must be between 60 and 3600 seconds."
     },
     "abort": {
-      "already_configured": "Această integrare este deja configurată."
+      "already_configured": "This integration is already configured."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Opțiuni",
-        "description": "Modifică setările integrării Curs valutar BNR.",
+        "title": "Options",
+        "description": "Update the settings for the BNR Exchange Rates integration.",
         "data": {
-          "update_interval": "Interval de actualizare (secunde)"
+          "update_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "update_interval": "How often the data is checked between 13:00 and 17:00, when BNR publishes the day's values. Outside this window the latest data is kept. Between 60 and 3600 seconds."
         }
       }
     }
