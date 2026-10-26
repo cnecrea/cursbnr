@@ -44,6 +44,8 @@ Verifică în **Developer Tools > States** și caută `cursbnr`. Dacă nu apare 
 
 Integrarea elimină automat senzorii când datele lor nu mai sunt disponibile în API. Asta e comportament normal — nu e o eroare. Senzorul va fi recreat automat când datele revin.
 
+Cauza apare în jurnal ca avertisment, o singură dată, cu numele sursei și detaliile erorii (de exemplu `ROBOR: datele nu sunt disponibile, senzorul este eliminat până revin. Detalii: …`). Dacă sursa cade doar temporar, serverul păstrează ultimele date bune, iar senzorul rămâne, cu data acelor date.
+
 Acest mecanism previne starea „Unavailable" — senzorii fie există cu date valide, fie nu există deloc.
 
 ---
