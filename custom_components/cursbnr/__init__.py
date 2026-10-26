@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -10,27 +12,38 @@ from homeassistant.helpers import config_validation as cv
 from .const import CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL, DOMAIN, PLATFORMS
 from .coordinator import CursBnrCoordinator
 
+if TYPE_CHECKING:
+    from .sensor import SensorManager
+
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Configurează integrarea dintr-o intrare Config Flow."""
-    hass.data.setdefault(DOMAIN, {})
+@dataclass
+class CursBnrData:
+    """Datele intrării: coordinator-ul și managerul senzorilor dinamici."""
 
+    coordinator: CursBnrCoordinator
+    sensor_manager: SensorManager | None = None
+
+
+type CursBnrConfigEntry = ConfigEntry[CursBnrData]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: CursBnrConfigEntry) -> bool:
+    """Configurează integrarea dintr-o intrare Config Flow."""
     # Intervalul de actualizare din options (prioritar) sau din data
     update_interval = entry.options.get(
         CONF_UPDATE_INTERVAL,
         entry.data.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
     )
+    _LOGGER.debug("Configurare: interval de actualizare %s s", update_interval)
 
     coordinator = CursBnrCoordinator(hass, update_interval=update_interval)
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-    }
+    entry.runtime_data = CursBnrData(coordinator=coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -42,7 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_listener(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant, entry: CursBnrConfigEntry
 ) -> None:
     """Gestionează actualizarea opțiunilor."""
     _LOGGER.debug("Opțiunile integrării au fost modificate, se reîncarcă")
@@ -50,13 +63,12 @@ async def _async_update_listener(
 
 
 async def async_unload_entry(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant, entry: CursBnrConfigEntry
 ) -> bool:
     """Dezactivează integrarea."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
         _LOGGER.debug("Integrarea Curs valutar BNR a fost dezactivată cu succes")
 
     return unload_ok

@@ -28,6 +28,16 @@ PLATFORMS: Final = ["sensor"]
 # Chei de configurare
 CONF_UPDATE_INTERVAL: Final = "update_interval"
 
+# Secțiunile din JSON (cheie → nume în jurnal); fiecare vine dintr-o altă sursă
+SECTIONS: Final = {
+    "curs_valutar": "Curs valutar BNR",
+    "cec": "Schimb valutar CEC",
+    "robor": "ROBOR",
+    "euribor": "EURIBOR",
+    "ircc_zilnic": "IRCC zilnic",
+    "ircc_trimestru": "IRCC trimestrial",
+}
+
 # Definiții senzori curs valutar BNR
 CURRENCY_SENSORS: Final = {
     "EUR": {

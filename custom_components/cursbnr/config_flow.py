@@ -68,26 +68,23 @@ class CursBnrConfigFlow(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> CursBnrOptionsFlow:
         """Returnează flow-ul de opțiuni."""
-        return CursBnrOptionsFlow(config_entry)
+        return CursBnrOptionsFlow()
 
 
 class CursBnrOptionsFlow(OptionsFlow):
-    """Options flow pentru integrarea Curs valutar BNR."""
-
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Inițializează options flow."""
-        self._config_entry = config_entry
+    """Options flow pentru integrarea Curs valutar BNR (`self.config_entry` vine de la HA)."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Pasul de configurare a opțiunilor."""
         if user_input is not None:
+            _LOGGER.debug("Opțiuni: interval de actualizare %s s", user_input.get(CONF_UPDATE_INTERVAL))
             return self.async_create_entry(title="", data=user_input)
 
-        current_interval = self._config_entry.options.get(
+        current_interval = self.config_entry.options.get(
             CONF_UPDATE_INTERVAL,
-            self._config_entry.data.get(
+            self.config_entry.data.get(
                 CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
             ),
         )

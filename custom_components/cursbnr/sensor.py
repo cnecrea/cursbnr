@@ -10,7 +10,6 @@ import logging
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ATTRIBUTION
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
@@ -18,6 +17,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import CursBnrConfigEntry
 from .const import ATTRIBUTION, CURRENCY_SENSORS, DOMAIN, FX_SENSORS
 from .coordinator import CursBnrCoordinator
 from .helpers import (
@@ -27,7 +27,7 @@ from .helpers import (
     extract_ircc_trimestrial_data,
     extract_ircc_zilnic_data,
     extract_robor_data,
-    safe_float,
+    section,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -111,11 +111,15 @@ class SensorManager:
             self._remove_sensors(to_remove)
 
     def _detect_available_keys(self, data: dict[str, Any]) -> set[str]:
-        """Detectează ce chei de senzori au date disponibile."""
+        """Detectează ce chei de senzori au date disponibile.
+
+        O secțiune cu `{"error": …}` (sursa n-a răspuns) nu are date — senzorul ei nu se creează.
+        """
         keys: set[str] = set()
 
         # Curs valutar BNR
-        curs_actual = data.get("curs_valutar", {}).get("actual", [])
+        curs = section(data, "curs_valutar")
+        curs_actual = (curs.get("actual") or []) if isinstance(curs, dict) else []
         available_currencies = {
             item.get("currency")
             for item in curs_actual
@@ -126,10 +130,10 @@ class SensorManager:
                 keys.add(config["key"])
 
         # FX / CEC
-        cec_data = data.get("cec", [])
+        cec_data = section(data, "cec")
         available_fx = {
             item.get("currency")
-            for item in cec_data
+            for item in (cec_data if isinstance(cec_data, list) else [])
             if item.get("currency")
         }
         for currency, config in FX_SENSORS.items():
@@ -137,21 +141,22 @@ class SensorManager:
                 keys.add(config["key"])
 
         # ROBOR
-        if data.get("robor", []):
+        if isinstance(section(data, "robor"), list):
             keys.add("dobanda_robor")
 
         # EURIBOR
-        if data.get("euribor", {}):
+        if isinstance(section(data, "euribor"), dict):
             keys.add("dobanda_euribor")
 
         # IRCC zilnic
-        if data.get("ircc_zilnic", []):
+        if isinstance(section(data, "ircc_zilnic"), list):
             keys.add("ircc_zilnic")
 
         # IRCC trimestrial
-        if data.get("ircc_trimestru", []):
+        if isinstance(section(data, "ircc_trimestru"), list):
             keys.add("ircc_trimestrial")
 
+        _LOGGER.debug("Senzori cu date disponibile: %s", ", ".join(sorted(keys)) or "niciunul")
         return keys
 
     def _create_sensors(
@@ -212,18 +217,18 @@ class SensorManager:
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: CursBnrConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Configurează platforma senzorilor cu management dinamic."""
-    entry_data = hass.data[DOMAIN][entry.entry_id]
-    coordinator: CursBnrCoordinator = entry_data["coordinator"]
+    coordinator = entry.runtime_data.coordinator
 
     manager = SensorManager(hass, coordinator, async_add_entities)
     manager.start()
 
-    # Salvează managerul pentru cleanup la unload
-    entry_data["sensor_manager"] = manager
+    # Managerul ascultă coordinator-ul; la descărcare se oprește odată cu intrarea
+    entry.runtime_data.sensor_manager = manager
+    entry.async_on_unload(manager.stop)
 
     _LOGGER.debug("Platforma senzorilor a fost configurată cu manager dinamic")
 

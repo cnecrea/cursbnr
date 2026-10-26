@@ -3,21 +3,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-from .coordinator import CursBnrCoordinator
+from . import CursBnrConfigEntry
+from .const import UPDATE_HOUR_END, UPDATE_HOUR_START, URL
+from .helpers import section, section_summary
 
 
 async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant, entry: CursBnrConfigEntry
 ) -> dict[str, Any]:
     """Returnează diagnosticele pentru o intrare de configurare."""
-    entry_data = hass.data[DOMAIN][entry.entry_id]
-    coordinator: CursBnrCoordinator = entry_data["coordinator"]
+    coordinator = entry.runtime_data.coordinator
+    data = coordinator.data or {}
 
-    # Date din config entry (fără informații sensibile)
+    # Date din config entry (fără informații sensibile — integrarea nu are credențiale)
     config_data = {
         "entry_id": entry.entry_id,
         "title": entry.title,
@@ -31,60 +31,32 @@ async def async_get_config_entry_diagnostics(
         "update_interval_seconds": coordinator.update_interval.total_seconds()
         if coordinator.update_interval
         else None,
+        "update_window": f"{UPDATE_HOUR_START}:00-{UPDATE_HOUR_END}:00",
+        "source_url": URL,
+        "last_fetch": coordinator.last_fetch,
     }
 
-    # Date brute de la API (anonimizate dacă e cazul)
+    # Câte elemente are fiecare secțiune (fără valori)
     raw_data: dict[str, Any] = {}
-    if coordinator.data:
-        data = coordinator.data
-
-        # Curs valutar - câte monede sunt disponibile
-        curs_valutar = data.get("curs_valutar", {})
-        actual = curs_valutar.get("actual", [])
-        anterior = curs_valutar.get("anterior", [])
+    curs = section(data, "curs_valutar")
+    if isinstance(curs, dict):
         raw_data["curs_valutar"] = {
-            "actual_count": len(actual),
-            "actual_currencies": [item.get("currency") for item in actual],
-            "anterior_count": len(anterior),
-            "anterior_currencies": [item.get("currency") for item in anterior],
+            "actual_currencies": [item.get("currency") for item in curs.get("actual") or []],
+            "anterior_currencies": [item.get("currency") for item in curs.get("anterior") or []],
         }
-
-        # CEC/FX
-        cec = data.get("cec", [])
-        raw_data["cec"] = {
-            "count": len(cec),
-            "currencies": [item.get("currency") for item in cec],
-        }
-
-        # ROBOR
-        robor = data.get("robor", [])
-        raw_data["robor"] = {
-            "entries_count": len(robor),
-            "has_data": bool(robor),
-        }
-
-        # EURIBOR
-        euribor = data.get("euribor", {})
-        raw_data["euribor"] = {
-            "periods": list(euribor.keys()) if euribor else [],
-            "has_data": bool(euribor),
-        }
-
-        # IRCC
-        ircc_zilnic = data.get("ircc_zilnic", [])
-        raw_data["ircc_zilnic"] = {
-            "entries_count": len(ircc_zilnic),
-            "has_data": bool(ircc_zilnic),
-        }
-
-        ircc_trimestru = data.get("ircc_trimestru", [])
-        raw_data["ircc_trimestru"] = {
-            "entries_count": len(ircc_trimestru),
-            "has_data": bool(ircc_trimestru),
-        }
+    cec = section(data, "cec")
+    if isinstance(cec, list):
+        raw_data["cec"] = {"currencies": [item.get("currency") for item in cec]}
+    euribor = section(data, "euribor")
+    if isinstance(euribor, dict):
+        raw_data["euribor"] = {"periods": list(euribor.keys())}
+    for key in ("robor", "ircc_zilnic", "ircc_trimestru"):
+        rows = section(data, key)
+        if isinstance(rows, list):
+            raw_data[key] = {"entries_count": len(rows), "columns": sorted(rows[0].keys()) if rows else []}
 
     # Senzori activi (din managerul dinamic)
-    sensor_manager = entry_data.get("sensor_manager")
+    sensor_manager = entry.runtime_data.sensor_manager
     active_sensors: list[str] = []
     if sensor_manager:
         active_sensors = sorted(sensor_manager._tracked_entities.keys())
@@ -92,6 +64,8 @@ async def async_get_config_entry_diagnostics(
     return {
         "config": config_data,
         "coordinator": coordinator_info,
+        "server": data.get("_meta") or "fără _meta (script vechi pe server)",
+        "sections": section_summary(data),
         "active_sensors": active_sensors,
         "data_summary": raw_data,
     }

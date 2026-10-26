@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .const import SECTIONS
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -26,6 +28,73 @@ def safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def section(data: dict[str, Any] | None, key: str) -> Any:
+    """Datele unei secțiuni din JSON, sau None dacă lipsesc ori serverul a raportat o eroare.
+
+    Când o sursă nu răspunde, serverul pune în locul datelor `{"error": "…"}` — un dict
+    nevid, deci „adevărat”; tratat ca listă, ar face senzorul să arunce excepții.
+    """
+    if not data:
+        return None
+    value = data.get(key)
+    if not value or (isinstance(value, dict) and "error" in value):
+        return None
+    return value
+
+
+def section_error(data: dict[str, Any] | None, key: str) -> str | None:
+    """Mesajul de eroare al unei secțiuni: din secțiune sau din `_meta.errors` (date păstrate)."""
+    if not data:
+        return None
+    value = data.get(key)
+    if isinstance(value, dict) and isinstance(value.get("error"), str):
+        return value["error"]
+    errors = (data.get("_meta") or {}).get("errors") or {}
+    return errors.get(key) if isinstance(errors, dict) else None
+
+
+def section_is_stale(data: dict[str, Any] | None, key: str) -> bool:
+    """Serverul n-a putut actualiza secțiunea și a păstrat datele de data trecută."""
+    stale = ((data or {}).get("_meta") or {}).get("stale") or []
+    return key in stale if isinstance(stale, list) else False
+
+
+def section_summary(data: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Starea fiecărei secțiuni (ok / eroare / date vechi) și data celor mai noi date — pentru jurnal și diagnostic."""
+    summary: dict[str, dict[str, Any]] = {}
+    for key in SECTIONS:
+        value = section(data, key)
+        error = section_error(data, key)
+        if value is None:
+            summary[key] = {"status": "error" if error else "missing", "error": error}
+            continue
+        entry: dict[str, Any] = {
+            "status": "stale" if section_is_stale(data, key) else "ok",
+            "latest": _latest_date(key, value),
+        }
+        if isinstance(value, list):
+            entry["rows"] = len(value)
+        if error:
+            entry["error"] = error
+        summary[key] = entry
+    return summary
+
+
+def _latest_date(key: str, value: Any) -> str | None:
+    """Data celor mai noi date dintr-o secțiune, așa cum o scrie sursa."""
+    try:
+        if key == "curs_valutar":
+            actual = value.get("actual") or []
+            return actual[0].get("date") if actual else None
+        if key == "euribor":
+            return next((v.get("date") for v in value.values() if isinstance(v, dict)), None)
+        if key == "cec":
+            return None  # pagina CEC nu are dată
+        return value[0].get("Data") if value else None
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return None
+
+
 def extract_currency_data(
     data: dict[str, Any] | None, currency: str
 ) -> tuple[float, float] | None:
@@ -33,11 +102,12 @@ def extract_currency_data(
 
     Returnează (valoare_curentă, valoare_anterioară) sau None dacă datele lipsesc.
     """
-    if not data:
+    curs = section(data, "curs_valutar")
+    if not isinstance(curs, dict):
         return None
 
-    curs_actual = data.get("curs_valutar", {}).get("actual", [])
-    curs_anterior = data.get("curs_valutar", {}).get("anterior", [])
+    curs_actual = curs.get("actual") or []
+    curs_anterior = curs.get("anterior") or []
 
     actual_item = next(
         (item for item in curs_actual if item.get("currency") == currency), None
@@ -66,10 +136,10 @@ def extract_fx_data(
 
     Returnează (sell_rate, buy_rate) sau None dacă datele lipsesc.
     """
-    if not data:
+    cec_data = section(data, "cec")
+    if not isinstance(cec_data, list):
         return None
 
-    cec_data = data.get("cec", [])
     fx_item = next(
         (item for item in cec_data if item.get("currency") == currency), None
     )
@@ -93,11 +163,8 @@ def extract_robor_data(data: dict[str, Any] | None) -> dict[str, Any] | None:
 
     Returnează dict cu cheile: data, 1m, 3m, 6m, 12m sau None.
     """
-    if not data:
-        return None
-
-    robor_list = data.get("robor", [])
-    if not robor_list:
+    robor_list = section(data, "robor")
+    if not isinstance(robor_list, list):
         _LOGGER.debug("Nu există date ROBOR")
         return None
 
@@ -121,24 +188,23 @@ def extract_euribor_data(data: dict[str, Any] | None) -> dict[str, float] | None
 
     Returnează dict cu cheile: 1w, 1m, 3m, 6m, 12m sau None.
     """
-    if not data:
-        return None
-
-    euribor = data.get("euribor", {})
-    if not euribor:
+    euribor = section(data, "euribor")
+    if not isinstance(euribor, dict):
         _LOGGER.debug("Nu există date EURIBOR")
         return None
 
-    week_data = euribor.get("1-week", {})
-    rate_1w = safe_float(week_data.get("rate"))
-
     return {
-        "1w": rate_1w,
-        "1m": safe_float(euribor.get("1-month", {}).get("rate")),
-        "3m": safe_float(euribor.get("3-months", {}).get("rate")),
-        "6m": safe_float(euribor.get("6-months", {}).get("rate")),
-        "12m": safe_float(euribor.get("12-months", {}).get("rate")),
+        "1w": safe_float((euribor.get("1-week") or {}).get("rate")),
+        "1m": safe_float((euribor.get("1-month") or {}).get("rate")),
+        "3m": safe_float((euribor.get("3-months") or {}).get("rate")),
+        "6m": safe_float((euribor.get("6-months") or {}).get("rate")),
+        "12m": safe_float((euribor.get("12-months") or {}).get("rate")),
     }
+
+
+def _ircc_value(row: dict[str, Any]) -> Any:
+    # PMZ_RT în JSON; PMRZ_IR e numele actual al coloanei la BNR (dacă serverul l-ar trimite direct)
+    return row.get("PMZ_RT", row.get("PMRZ_IR"))
 
 
 def extract_ircc_zilnic_data(
@@ -148,20 +214,16 @@ def extract_ircc_zilnic_data(
 
     Returnează dict cu cheile: current, change sau None.
     """
-    if not data:
-        return None
-
-    ircc_list = data.get("ircc_zilnic", [])
-    if not ircc_list:
+    ircc_list = section(data, "ircc_zilnic")
+    if not isinstance(ircc_list, list):
         _LOGGER.debug("Nu există date IRCC zilnic")
         return None
 
-    newest = ircc_list[0]
-    current = safe_float(newest.get("PMZ_RT"))
+    current = safe_float(_ircc_value(ircc_list[0]))
 
     change = None
     if len(ircc_list) >= 2:
-        previous = safe_float(ircc_list[1].get("PMZ_RT"))
+        previous = safe_float(_ircc_value(ircc_list[1]))
         change = current - previous
 
     return {"current": current, "change": change}
@@ -174,11 +236,8 @@ def extract_ircc_trimestrial_data(
 
     Returnează dict cu cheile: current, change sau None.
     """
-    if not data:
-        return None
-
-    ircc_list = data.get("ircc_trimestru", [])
-    if not ircc_list:
+    ircc_list = section(data, "ircc_trimestru")
+    if not isinstance(ircc_list, list):
         _LOGGER.debug("Nu există date IRCC trimestrial")
         return None
 
